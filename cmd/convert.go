@@ -47,8 +47,12 @@ func (x *Convert) Execute(args []string) error {
 		fmt.Fprintf(os.Stderr, "When converting to zcash please specify the path to the zcash binary. Example:\nopenbazaar-go convert zcash /path/to/zcashd\n")
 		return nil
 	}
-	if !(strings.ToLower(args[0]) == "bitcoin" || strings.ToLower(args[0]) == "bitcoincash" || strings.ToLower(args[0]) == "zcash") {
-		fmt.Fprintf(os.Stderr, "Unknown currency type: please enter either bitcoin, bitcoincash, or zcash.\n")
+	if strings.ToLower(args[0]) == "zencash" && len(args) == 1 {
+		fmt.Fprintf(os.Stderr, "When converting to zencash please specify the path to the zend binary. Example:\nopenbazaar-go convert zencash /path/to/zend\n")
+		return nil
+	}
+	if !(strings.ToLower(args[0]) == "bitcoin" || strings.ToLower(args[0]) == "bitcoincash" || strings.ToLower(args[0]) == "zcash" || strings.ToLower(args[0]) == "zencash") {
+		fmt.Fprintf(os.Stderr, "Unknown currency type: please enter either bitcoin, bitcoincash, zcash, or zencash.\n")
 		return nil
 	}
 
@@ -68,6 +72,10 @@ func (x *Convert) Execute(args []string) error {
 		str = "ZCash"
 		cfgtype = "zcashd"
 		currencyCode = "ZEC"
+	case "zencash":
+		str = "ZenCash"
+		cfgtype = "zend"
+		currencyCode = "ZEN"
 	}
 
 	if x.Testnet {
@@ -155,7 +163,7 @@ func (x *Convert) Execute(args []string) error {
 		return errors.New("Invalid config file")
 	}
 	walletCfg["Type"] = cfgtype
-	if strings.ToLower(args[0]) == "zcash" {
+	if strings.ToLower(args[0]) == "zcash" || strings.ToLower(args[0]) == "zencash" {
 		walletCfg["Binary"] = args[1]
 	}
 	out, err := json.MarshalIndent(cfgObj, "", "   ")

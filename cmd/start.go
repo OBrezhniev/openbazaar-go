@@ -57,6 +57,7 @@ import (
 	"strings"
 
 	"github.com/OpenBazaar/openbazaar-go/bitcoin/zcashd"
+	"github.com/OpenBazaar/openbazaar-go/bitcoin/zend"
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	lockfile "github.com/ipfs/go-ipfs/repo/fsrepo/lock"
 	"github.com/ipfs/go-ipfs/thirdparty/ds-help"
@@ -115,6 +116,7 @@ type Start struct {
 	Storage              string   `long:"storage" description:"set the outgoing message storage option [self-hosted, dropbox] default=self-hosted"`
 	BitcoinCash          bool     `long:"bitcoincash" description:"use a Bitcoin Cash wallet in a dedicated data directory"`
 	ZCash                string   `long:"zcash" description:"use a ZCash wallet in a dedicated data directory. To use this you must pass in the location of the zcashd binary."`
+	ZenCash              string   `long:"zencash" description:"use a ZenCash wallet in a dedicated data directory. To use this you must pass in the location of the zend binary."`
 }
 
 func (x *Start) Execute(args []string) error {
@@ -132,8 +134,8 @@ func (x *Start) Execute(args []string) error {
 	if x.Testnet || x.Regtest {
 		isTestnet = true
 	}
-	if x.BitcoinCash && x.ZCash != "" {
-		return errors.New("Bitcoin Cash and ZCash cannot be used at the same time")
+	if (x.BitcoinCash && x.ZCash != "") || (x.BitcoinCash && x.ZenCash != "") || (x.ZCash != "" && x.ZenCash != "") {
+		return errors.New("Bitcoin Cash, ZCash and ZenCash cannot be used at the same time")
 	}
 
 	// Set repo path
@@ -145,6 +147,8 @@ func (x *Start) Execute(args []string) error {
 		repoPath += "-bitcoincash"
 	} else if x.ZCash != "" {
 		repoPath += "-zcash"
+	} else if x.ZenCash != "" {
+		repoPath += "-zen"
 	}
 	if x.DataDir != "" {
 		repoPath = x.DataDir
@@ -519,6 +523,9 @@ func (x *Start) Execute(args []string) error {
 	} else if x.ZCash != "" {
 		walletCfg.Type = "zcashd"
 		walletCfg.Binary = x.ZCash
+	} else if x.ZenCash != "" {
+		walletCfg.Type = "zend"
+		walletCfg.Binary = x.ZenCash
 	}
 	var exchangeRates bitcoin.ExchangeRates
 	if !x.DisableExchangeRates {
@@ -647,6 +654,23 @@ func (x *Start) Execute(args []string) error {
 		}
 		if !x.DisableExchangeRates {
 			exchangeRates = zcashd.NewZcashPriceFetcher(torDialer)
+		}
+		resyncManager = resync.NewResyncManager(sqliteDB.Sales(), cryptoWallet)
+	case "zend":
+		walletTypeStr = "zend"
+		if walletCfg.Binary == "" {
+			return errors.New("The path to the zend binary must be specified in the config file when using zend")
+		}
+		usetor := false
+		if usingTor && !usingClearnet {
+			usetor = true
+		}
+		cryptoWallet, err = zend.NewZendWallet(mn, &params, repoPath, walletCfg.TrustedPeer, walletCfg.Binary, usetor, controlPort)
+		if err != nil {
+			return err
+		}
+		if !x.DisableExchangeRates {
+			exchangeRates = zend.NewZenCashPriceFetcher(torDialer)
 		}
 		resyncManager = resync.NewResyncManager(sqliteDB.Sales(), cryptoWallet)
 	default:
