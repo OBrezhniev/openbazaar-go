@@ -56,7 +56,7 @@ type ZendWallet struct {
 }
 
 var connCfg *btcrpcclient.ConnConfig = &btcrpcclient.ConnConfig{
-	Host:                 "localhost:8232",
+	Host:                 "localhost:8231",
 	HTTPPostMode:         true, // zend only supports HTTP POST mode
 	DisableTLS:           true, // zend does not provide TLS by default
 	DisableAutoReconnect: false,
@@ -69,7 +69,7 @@ func NewZendWallet(mnemonic string, params *chaincfg.Params, repoPath string, tr
 	mPubKey, _ := mPrivKey.Neuter()
 
 	if params.Name == chaincfg.TestNet3Params.Name || params.Name == chaincfg.RegressionNetParams.Name {
-		connCfg.Host = "localhost:18232"
+		connCfg.Host = "localhost:18231"
 	}
 
 	dataDir := path.Join(repoPath, "zen")
