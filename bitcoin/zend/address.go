@@ -46,9 +46,8 @@ type NetID struct {
 
 func init() {
 	NetIDs = make(map[string]NetID)
-	NetIDs[chaincfg.MainNetParams.Name] = NetID{[]byte{0x1c, 0xb8}, []byte{0x1c, 0xbd}, []byte{0x16, 0x9a}}
-	NetIDs[chaincfg.TestNet3Params.Name] = NetID{[]byte{0x1d, 0x25}, []byte{0x1c, 0xba}, []byte{0x16, 0xb6}}
-	NetIDs[chaincfg.RegressionNetParams.Name] = NetID{[]byte{0x1d, 0x25}, []byte{0x1c, 0xba}, []byte{0x16, 0xb6}}
+	NetIDs[chaincfg.MainNetParams.Name] = NetID{[]byte{0x20, 0x89}, []byte{0x20, 0x96}, []byte{0x16, 0x9a}}
+	NetIDs[chaincfg.TestNet3Params.Name] = NetID{[]byte{0x20, 0x98}, []byte{0x20, 0x92}, []byte{0x16, 0xb6}}
 }
 
 // checksum: first four bytes of sha256^2

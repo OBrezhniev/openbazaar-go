@@ -68,7 +68,7 @@ func NewZendWallet(mnemonic string, params *chaincfg.Params, repoPath string, tr
 	mPrivKey, _ := hd.NewMaster(seed, params)
 	mPubKey, _ := mPrivKey.Neuter()
 
-	if params.Name == chaincfg.TestNet3Params.Name || params.Name == chaincfg.RegressionNetParams.Name {
+	if params.Name == chaincfg.TestNet3Params.Name {
 		connCfg.Host = "localhost:18231"
 	}
 
@@ -175,8 +175,6 @@ func (w *ZendWallet) BuildArguments(rescan bool) []string {
 
 	if w.params.Name == chaincfg.TestNet3Params.Name {
 		args = append(args, "-testnet")
-	} else if w.params.Name == chaincfg.RegressionNetParams.Name {
-		args = append(args, "-regtest")
 	}
 	if w.trustedPeer != "" {
 		args = append(args, "-connect="+w.trustedPeer)
