@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	
+
 	"github.com/OpenBazaar/openbazaar-go/bitcoin/bitcoind"
 	"github.com/OpenBazaar/spvwallet"
 	"github.com/OpenBazaar/wallet-interface"
@@ -203,6 +205,7 @@ func (w *ZendWallet) Start() {
 	}()
 	for {
 		_, err := client.GetBlockCount()
+		log.Debug(err)
 		if err == nil {
 			break
 		}
@@ -675,7 +678,7 @@ func (w *ZendWallet) EstimateFee(ins []wallet.TransactionInput, outs []wallet.Tr
 
 func (w *ZendWallet) EstimateSpendFee(amount int64, feeLevel wallet.FeeLevel) (uint64, error) {
 	<-w.initChan
-	addr, err := DecodeAddress("t1VpYecBW4UudbGcy4ufh61eWxQCoFaUrPs", &chaincfg.MainNetParams)
+	addr, err := DecodeAddress("znRLxRK1PwTfWEBruYiuR8r8b24QrQHxXgN", &chaincfg.MainNetParams)
 	if err != nil {
 		return 0, err
 	}
