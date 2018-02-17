@@ -3,13 +3,14 @@ package zend
 import (
 	"encoding/json"
 	"errors"
-	"github.com/OpenBazaar/openbazaar-go/bitcoin/exchange"
-	"golang.org/x/net/proxy"
 	"net"
 	"net/http"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/OpenBazaar/openbazaar-go/bitcoin/exchange"
+	"golang.org/x/net/proxy"
 )
 
 type ExchangeRateProvider struct {
@@ -25,8 +26,8 @@ type ExchangeRateDecoder interface {
 }
 
 type OpenBazaarDecoder struct{}
-type KrakenDecoder struct{}
-type PoloniexDecoder struct{}
+type OkexDecoder struct{}
+type CryptopiaDecoder struct{}
 type BitfinexDecoder struct{}
 type BittrexDecoder struct{}
 
@@ -51,6 +52,8 @@ func NewZenCashPriceFetcher(dialer proxy.Dialer) *ZenCashPriceFetcher {
 	z.providers = []*ExchangeRateProvider{
 		{"https://ticker.openbazaar.org/api", z.cache, client, OpenBazaarDecoder{}, nil},
 		{"https://bittrex.com/api/v1.1/public/getticker?market=btc-zen", z.cache, client, BittrexDecoder{}, bp},
+		{"https://www.cryptopia.co.nz/api/GetMarket/ZEN_BTC", z.cache, client, CryptopiaDecoder{}, bp},
+		{"https://www.okex.com/api/v1/ticker.do?symbol=zen_btc", z.cache, client, OkexDecoder{}, bp},
 	}
 	go z.run()
 	return &z
@@ -137,15 +140,15 @@ func (provider *ExchangeRateProvider) fetch() (err error) {
 func (b OpenBazaarDecoder) decode(dat interface{}, cache map[string]float64, bp *exchange.BitcoinPriceFetcher) (err error) {
 	data := dat.(map[string]interface{})
 
-	zec, ok := data["ZEN"]
+	zen, ok := data["ZEN"]
 	if !ok {
 		return errors.New(reflect.TypeOf(b).Name() + ".decode: Type assertion failed, missing 'ZEN' field")
 	}
-	val, ok := zec.(map[string]interface{})
+	val, ok := zen.(map[string]interface{})
 	if !ok {
 		return errors.New(reflect.TypeOf(b).Name() + ".decode: Type assertion failed")
 	}
-	zecRate, ok := val["last"].(float64)
+	zenRate, ok := val["last"].(float64)
 	if !ok {
 		return errors.New(reflect.TypeOf(b).Name() + ".decode: Type assertion failed, missing 'last' (float) field")
 	}
@@ -159,7 +162,7 @@ func (b OpenBazaarDecoder) decode(dat interface{}, cache map[string]float64, bp 
 			if !ok {
 				return errors.New(reflect.TypeOf(b).Name() + ".decode: Type assertion failed, missing 'last' (float) field")
 			}
-			cache[k] = price * (1 / zecRate)
+			cache[k] = price * (1 / zenRate)
 		}
 	}
 	return nil
@@ -191,6 +194,72 @@ func (b BittrexDecoder) decode(dat interface{}, cache map[string]float64, bp *ex
 		return errors.New("BittrexDecoder type assertion failure")
 	}
 
+	if rate == 0 {
+		return errors.New("Bitcoin-ZenCash price data not available")
+	}
+	for k, v := range rates {
+		cache[k] = v * rate
+	}
+	return nil
+}
+func (b CryptopiaDecoder) decode(dat interface{}, cache map[string]float64, bp *exchange.BitcoinPriceFetcher) (err error) {
+	rates, err := bp.GetAllRates(false)
+	if err != nil {
+		return err
+	}
+	obj, ok := dat.(map[string]interface{})
+	if !ok {
+		return errors.New("CryptopiaDecoder type assertion failure")
+	}
+	result, ok := obj["Data"]
+	if !ok {
+		return errors.New("CryptopiaDecoder: field `Data` not found")
+	}
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return errors.New("CryptopiaDecoder type assertion failure")
+	}
+	exRate, ok := resultMap["LastPrice"]
+	if !ok {
+		return errors.New("CryptopiaDecoder: field `LastPrice` not found")
+	}
+	rate, ok := exRate.(float64)
+	if !ok {
+		return errors.New("CryptopiaDecoder type assertion failure")
+	}
+	if rate == 0 {
+		return errors.New("Bitcoin-ZenCash price data not available")
+	}
+	for k, v := range rates {
+		cache[k] = v * rate
+	}
+	return nil
+}
+func (b OkexDecoder) decode(dat interface{}, cache map[string]float64, bp *exchange.BitcoinPriceFetcher) (err error) {
+	rates, err := bp.GetAllRates(false)
+	if err != nil {
+		return err
+	}
+	obj, ok := dat.(map[string]interface{})
+	if !ok {
+		return errors.New("OkexDecoder type assertion failure")
+	}
+	result, ok := obj["result"]
+	if !ok {
+		return errors.New("OkexDecoder: field `ticker` not found")
+	}
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return errors.New("OkexDecoder type assertion failure")
+	}
+	exRate, ok := resultMap["Last"]
+	if !ok {
+		return errors.New("OkexDecoder: field `last` not found")
+	}
+	rate, ok := exRate.(float64)
+	if !ok {
+		return errors.New("OkexDecoder type assertion failure")
+	}
 	if rate == 0 {
 		return errors.New("Bitcoin-ZenCash price data not available")
 	}
