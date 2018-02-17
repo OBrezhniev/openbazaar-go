@@ -9,7 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	
+	"os"
+	"os/exec"
+	"path"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/OpenBazaar/openbazaar-go/bitcoin/bitcoind"
 	"github.com/OpenBazaar/spvwallet"
@@ -24,16 +30,10 @@ import (
 	"github.com/btcsuite/btcutil/coinset"
 	hd "github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/btcsuite/btcutil/txsort"
+	"github.com/btcsuite/btcwallet/wallet/txauthor"
 	"github.com/btcsuite/btcwallet/wallet/txrules"
 	"github.com/op/go-logging"
 	b39 "github.com/tyler-smith/go-bip39"
-	"os"
-	"os/exec"
-	"path"
-	"runtime"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var log = logging.MustGetLogger("zend")
@@ -185,6 +185,8 @@ func (w *ZendWallet) BuildArguments(rescan bool) []string {
 		socksPort := bitcoind.DefaultSocksPort(w.controlPort)
 		args = append(args, "-listen", "-proxy:127.0.0.1:"+strconv.Itoa(socksPort), "-onlynet=onion")
 	}
+	log.Debug("zend args")
+	log.Debug(args)
 	return args
 }
 
@@ -552,7 +554,7 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 	}
 
 	outputs := []*wire.TxOut{out}
-	authoredTx, err := spvwallet.NewUnsignedTransaction(outputs, btc.Amount(feePerKB), inputSource, changeSource)
+	authoredTx, err := NewUnsignedTransaction(outputs, btc.Amount(feePerKB), inputSource, changeSource)
 	if err != nil {
 		return nil, err
 	}
@@ -576,6 +578,7 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 			authoredTx.Tx, i, prevOutScript, txscript.SigHashAll, getKey,
 			getScript, txIn.SignatureScript)
 		if err != nil {
+			log.Debug("errrrr", err)
 			return nil, errors.New("Failed to sign transaction")
 		}
 		txIn.SignatureScript = script
@@ -990,5 +993,65 @@ func (w *ZendWallet) Close() {
 	if w.rpcClient != nil {
 		w.rpcClient.RawRequest("stop", []json.RawMessage{})
 		w.rpcClient.Shutdown()
+	}
+}
+
+func NewUnsignedTransaction(outputs []*wire.TxOut, feePerKb btc.Amount, fetchInputs txauthor.InputSource, fetchChange txauthor.ChangeSource) (*txauthor.AuthoredTx, error) {
+
+	var targetAmount btc.Amount
+	for _, txOut := range outputs {
+		targetAmount += btc.Amount(txOut.Value)
+	}
+
+	estimatedSize := EstimateSerializeSize(1, outputs, true, 0)
+	targetFee := txrules.FeeForSerializeSize(feePerKb, estimatedSize)
+
+	for {
+		inputAmount, inputs, scripts, err := fetchInputs(targetAmount + targetFee)
+		if err != nil {
+			return nil, err
+		}
+		if inputAmount < targetAmount+targetFee {
+			return nil, errors.New("insufficient funds available to construct transaction")
+		}
+
+		maxSignedSize := EstimateSerializeSize(len(inputs), outputs, true, 0)
+		maxRequiredFee := txrules.FeeForSerializeSize(feePerKb, maxSignedSize)
+		remainingAmount := inputAmount - targetAmount
+		if remainingAmount < maxRequiredFee {
+			targetFee = maxRequiredFee
+			continue
+		}
+
+		unsignedTransaction := &wire.MsgTx{
+			Version:  wire.TxVersion,
+			TxIn:     inputs,
+			TxOut:    outputs,
+			LockTime: 0,
+		}
+		changeIndex := -1
+		changeAmount := inputAmount - targetAmount - maxRequiredFee
+		if changeAmount != 0 && !txrules.IsDustAmount(changeAmount,
+			P2PKHOutputSize, txrules.DefaultRelayFeePerKb) {
+			changeScript, err := fetchChange()
+			if err != nil {
+				return nil, err
+			}
+			if len(changeScript) > P2PKHPkScriptSize {
+				return nil, errors.New("fee estimation requires change " +
+					"scripts no larger than P2PKH output scripts")
+			}
+			change := wire.NewTxOut(int64(changeAmount), changeScript)
+			l := len(outputs)
+			unsignedTransaction.TxOut = append(outputs[:l:l], change)
+			changeIndex = l
+		}
+
+		return &txauthor.AuthoredTx{
+			Tx:          unsignedTransaction,
+			PrevScripts: scripts,
+			TotalInput:  inputAmount,
+			ChangeIndex: changeIndex,
+		}, nil
 	}
 }
