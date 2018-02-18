@@ -979,7 +979,13 @@ func (w *ZendWallet) GenerateMultisigScript(keys []hd.ExtendedKey, threshold int
 		}
 		addrPubKeys = append(addrPubKeys, k)
 	}
-	redeemScript, err = txscript.MultiSigScript(addrPubKeys, threshold)
+	blockHeight, _ := w.ChainTip()
+	blockNumber := int64(blockHeight) - 300
+	blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+	redeemScript, err = MultiSigScript(addrPubKeys, threshold, blockHash.CloneBytes(), blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
