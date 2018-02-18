@@ -283,7 +283,7 @@ func (a *AddressScriptHash) Hash160() *[ripemd160.Size]byte {
 
 // PayToAddrScript creates a new script to pay a transaction output to a the
 // specified address.
-func PayToAddrScript(addr btcutil.Address) ([]byte, error) {
+func PayToAddrScript(addr btcutil.Address, blockHash []byte, blockNumber int64) ([]byte, error) {
 	const nilAddrErrStr = "unable to generate payment script for nil address"
 
 	switch addr := addr.(type) {
@@ -291,7 +291,7 @@ func PayToAddrScript(addr btcutil.Address) ([]byte, error) {
 		if addr == nil {
 			return nil, errors.New(nilAddrErrStr)
 		}
-		return payToPubKeyHashScript(addr.ScriptAddress())
+		return payToPubKeyHashScript(addr.ScriptAddress(), blockHash, blockNumber)
 
 	case *AddressScriptHash:
 		if addr == nil {
@@ -306,11 +306,19 @@ func PayToAddrScript(addr btcutil.Address) ([]byte, error) {
 // payToPubKeyHashScript creates a new script to pay a transaction
 // output to a 20-byte pubkey hash. It is expected that the input is a valid
 // hash.
-func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
+func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
 	log.Debug("adding op-code 0xb4")
 
+	//TODO
+
+	//get block hash
+
+	//get block number -300
+
+	//get current blocknumber
+	log.Debug("blockhshlen", len(blockHash))
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160).
-		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).AddOp(txscript.OP_NOP5).
+		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).
 		Script()
 }
 

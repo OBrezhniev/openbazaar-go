@@ -130,8 +130,10 @@ const (
 	//   - 20 bytes pubkey hash
 	//   - OP_EQUALVERIFY
 	//   - OP_CHECKSIG
-	//   - OP_NOP5
-	P2PKHPkScriptSize = 1 + 1 + 1 + 20 + 1 + 1 + 1
+	//   - OP_NOP5 -1
+	//   - 32 bytes blockchash
+	//   - 8 byte block height
+	P2PKHPkScriptSize = 1 + 1 + 1 + 20 + 1 + 1 + 1 + 32 + 8
 
 	// RedeemP2PKHInputSize is the worst case (largest) serialize size of a
 	// transaction input redeeming a compressed P2PKH output.  It is
