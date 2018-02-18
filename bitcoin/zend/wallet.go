@@ -282,12 +282,13 @@ func (w *ZendWallet) ScriptToAddress(script []byte) (btc.Address, error) {
 
 func (w *ZendWallet) AddressToScript(addr btc.Address) ([]byte, error) {
 
-	blockHash, err := hex.DecodeString("1e3f343c7a147eb1a9e7dac9f213aebab763e06a05c42b6f9a62fad115530f00")
-	blockNumber := int64(200816)
+	blockHeight, _ := w.ChainTip()
+	blockNumber := int64(blockHeight) - 300
+	blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	return PayToAddrScript(addr, blockHash, blockNumber)
+	return PayToAddrScript(addr, blockHash.CloneBytes(), blockNumber)
 }
 
 func (w *ZendWallet) HasKey(addr btc.Address) bool {
@@ -497,17 +498,13 @@ func (w *ZendWallet) Spend(amount int64, addr btc.Address, feeLevel wallet.FeeLe
 
 func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.FeeLevel) (*wire.MsgTx, error) {
 
-	//decode 58
-	//5a36e3cf9fe35386dfc867116813f7cac8c276d6f4f3e94c0835bd8200000000 258846
-	//86e623b6244d79d15a0a67816cb6c0d6de0096078a07b5330370101c00000000 256822
-
-	//1e3f343c7a147eb1a9e7dac9f213aebab763e06a05c42b6f9a62fad115530f00 200816
-	blockHash, err := hex.DecodeString("1e3f343c7a147eb1a9e7dac9f213aebab763e06a05c42b6f9a62fad115530f00")
-	blockNumber := int64(200816)
+	blockHeight, _ := w.ChainTip()
+	blockNumber := int64(blockHeight) - 300
+	blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	script, _ := PayToAddrScript(addr, blockHash, blockNumber)
+	script, _ := PayToAddrScript(addr, blockHash.CloneBytes(), blockNumber)
 	if txrules.IsDustAmount(btc.Amount(amount), len(script), txrules.DefaultRelayFeePerKb) {
 		return nil, wallet.ErrorDustAmount
 	}
@@ -565,7 +562,7 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 	// Create change source
 	changeSource := func() ([]byte, error) {
 		addr := w.CurrentAddress(wallet.INTERNAL)
-		script, err := PayToAddrScript(addr, blockHash, blockNumber)
+		script, err := PayToAddrScript(addr, blockHash.CloneBytes(), blockNumber)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -582,39 +579,42 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 	// BIP 69 sorting
 	txsort.InPlaceSort(authoredTx.Tx)
 
-	// Sign tx
-	getKey := txscript.KeyClosure(func(addr btc.Address) (*btcec.PrivateKey, bool, error) {
-		addrStr := addr.EncodeAddress()
-		wif := additionalKeysByAddress[addrStr]
-		return wif.PrivKey, wif.CompressPubKey, nil
-	})
-	getScript := txscript.ScriptClosure(func(
-		addr btc.Address) ([]byte, error) {
-		return []byte{}, nil
-	})
-	log.Debug("staart signing")
+	//// Sign tx
+	//getKey := txscript.KeyClosure(func(addr btc.Address) (*btcec.PrivateKey, bool, error) {
+	//	addrStr := addr.EncodeAddress()
+	//	wif := additionalKeysByAddress[addrStr]
+	//	return wif.PrivKey, wif.CompressPubKey, nil
+	//})
+	//getScript := txscript.ScriptClosure(func(
+	//	addr btc.Address) ([]byte, error) {
+	//	return []byte{}, nil
+	//})
+	//log.Debug("staart signing")
 
-	// tx, _, err := w.rpcClient.SignRawTransaction(authoredTx.Tx)
-	// if err != nil {
-	// 	log.Debug("errrrr", err)
-	// 	return nil, errors.New("Failed to sign transaction")
-	// }
-	for i, txIn := range authoredTx.Tx.TxIn {
-		prevOutScript := additionalPrevScripts[txIn.PreviousOutPoint]
-		log.Debug("prevOutScript ", prevOutScript)
-
-		//try sign tx
-
-		script, err := txscript.SignTxOutput(w.params,
-			authoredTx.Tx, i, prevOutScript, txscript.SigHashAll, getKey,
-			getScript, txIn.SignatureScript)
-		if err != nil {
-			log.Debug("errrrr", err)
-			return nil, errors.New("Failed to sign transaction")
-		}
-		txIn.SignatureScript = script
+	tx, _, err := w.rpcClient.SignRawTransaction(authoredTx.Tx)
+	if err != nil {
+		log.Debug(err)
+		return nil, errors.New("Failed to sign transaction")
 	}
-	return authoredTx.Tx, nil
+
+	return tx, nil
+
+	//for i, txIn := range authoredTx.Tx.TxIn {
+	//	prevOutScript := additionalPrevScripts[txIn.PreviousOutPoint]
+	//	log.Debug("prevOutScript ", prevOutScript)
+	//
+	//	//try sign tx
+	//
+	//	script, err := txscript.SignTxOutput(w.params,
+	//		authoredTx.Tx, i, prevOutScript, txscript.SigHashAll, getKey,
+	//		getScript, txIn.SignatureScript)
+	//	if err != nil {
+	//		log.Debug("errrrr", err)
+	//		return nil, errors.New("Failed to sign transaction")
+	//	}
+	//	txIn.SignatureScript = script
+	//}
+	//return authoredTx.Tx, nil
 }
 
 func (w *ZendWallet) BumpFee(txid chainhash.Hash) (*chainhash.Hash, error) {
@@ -859,12 +859,13 @@ func (w *ZendWallet) SweepAddress(utxos []wallet.Utxo, address *btc.Address, key
 	} else {
 		internalAddr = w.CurrentAddress(wallet.INTERNAL)
 	}
-	blockHash, err := hex.DecodeString("1e3f343c7a147eb1a9e7dac9f213aebab763e06a05c42b6f9a62fad115530f00")
-	blockNumber := int64(200816)
+	blockHeight, _ := w.ChainTip()
+	blockNumber := int64(blockHeight) - 300
+	blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	script, err := PayToAddrScript(internalAddr, blockHash, blockNumber)
+	script, err := PayToAddrScript(internalAddr, blockHash.CloneBytes(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
