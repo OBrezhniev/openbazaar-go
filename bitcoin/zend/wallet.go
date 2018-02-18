@@ -199,7 +199,7 @@ func (w *ZendWallet) Start() {
 
 	cmd := exec.Command(w.binary, args...)
 	go cmd.Start()
-	ticker := time.NewTicker(time.Second * 30)
+	ticker := time.NewTicker(time.Second * 60)
 	go func() {
 		for range ticker.C {
 			log.Fatal("Failed to connect to zend")
