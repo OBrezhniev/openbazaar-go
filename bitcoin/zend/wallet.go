@@ -833,6 +833,12 @@ func (w *ZendWallet) Multisign(ins []wallet.TransactionInput, outs []wallet.Tran
 		builder.AddData(sig1)
 		builder.AddData(sig2)
 		builder.AddData(redeemScript)
+	
+		blockHeight, _ := w.ChainTip()
+		blockNumber := int64(blockHeight) - 300
+		blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
+
+		builder.AddData(blockHash.CloneBytes()).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
 		scriptSig, err := builder.Script()
 		if err != nil {
 			return nil, err
@@ -985,6 +991,7 @@ func (w *ZendWallet) GenerateMultisigScript(keys []hd.ExtendedKey, threshold int
 	if err != nil {
 		return nil, nil, err
 	}
+
 	redeemScript, err = MultiSigScript(addrPubKeys, threshold, blockHash.CloneBytes(), blockNumber)
 	if err != nil {
 		return nil, nil, err
