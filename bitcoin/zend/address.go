@@ -1,7 +1,6 @@
 package zend
 
 import (
-	"encoding/hex"
 	"errors"
 
 	"bytes"
@@ -356,12 +355,6 @@ func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash [
 	//log.Debugf("pay to Script creating")
 	//blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
 	//builder.AddData(blockHash).AddInt64(261501).AddOp(txscript.OP_NOP5)
-
-	//temporary insert static data
-	blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
-	blockNumber = 261501
-
-	builder.AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
 
 	return builder.Script()
 }
