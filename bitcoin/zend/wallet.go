@@ -579,18 +579,6 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 	// BIP 69 sorting
 	txsort.InPlaceSort(authoredTx.Tx)
 
-	//// Sign tx
-	//getKey := txscript.KeyClosure(func(addr btc.Address) (*btcec.PrivateKey, bool, error) {
-	//	addrStr := addr.EncodeAddress()
-	//	wif := additionalKeysByAddress[addrStr]
-	//	return wif.PrivKey, wif.CompressPubKey, nil
-	//})
-	//getScript := txscript.ScriptClosure(func(
-	//	addr btc.Address) ([]byte, error) {
-	//	return []byte{}, nil
-	//})
-	//log.Debug("staart signing")
-
 	tx, _, err := w.rpcClient.SignRawTransaction(authoredTx.Tx)
 	if err != nil {
 		log.Debug(err)
@@ -599,22 +587,6 @@ func (w *ZendWallet) buildTx(amount int64, addr btc.Address, feeLevel wallet.Fee
 
 	return tx, nil
 
-	//for i, txIn := range authoredTx.Tx.TxIn {
-	//	prevOutScript := additionalPrevScripts[txIn.PreviousOutPoint]
-	//	log.Debug("prevOutScript ", prevOutScript)
-	//
-	//	//try sign tx
-	//
-	//	script, err := txscript.SignTxOutput(w.params,
-	//		authoredTx.Tx, i, prevOutScript, txscript.SigHashAll, getKey,
-	//		getScript, txIn.SignatureScript)
-	//	if err != nil {
-	//		log.Debug("errrrr", err)
-	//		return nil, errors.New("Failed to sign transaction")
-	//	}
-	//	txIn.SignatureScript = script
-	//}
-	//return authoredTx.Tx, nil
 }
 
 func (w *ZendWallet) BumpFee(txid chainhash.Hash) (*chainhash.Hash, error) {
@@ -775,21 +747,6 @@ func (w *ZendWallet) CreateMultisigSignature(ins []wallet.TransactionInput, outs
 	if err != nil {
 		return sigs, err
 	}
-
-	// log.Debug("Append to reedem script started" )
-	// blockHeight, _ := w.ChainTip()
-	// blockNumber := int64(blockHeight) - 300
-	// blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
-
-	
-	// //append to reedim script
-	// builder := txscript.NewScriptBuilder()
-	// builder.AddData(redeemScript)
-	// builder.AddData(blockHash.CloneBytes()).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
-	// redeemScript, err = builder.Script()
-
-	log.Debug("Append to reedem script stopped")
-
 	for i := range tx.TxIn {
 		sig, err := txscript.RawTxInSignature(tx, i, redeemScript, txscript.SigHashAll, signingKey)
 		if err != nil {
@@ -847,15 +804,8 @@ func (w *ZendWallet) Multisign(ins []wallet.TransactionInput, outs []wallet.Tran
 		builder.AddData(sig1)
 		builder.AddData(sig2)
 		builder.AddData(redeemScript)
-	
-		blockHeight, _ := w.ChainTip()
-		blockNumber := int64(blockHeight) - 300
-		blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
-
-		builder.AddData(blockHash.CloneBytes()).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
 		scriptSig, err := builder.Script()
 
-		log.Debug("Create mult sign tx")
 		if err != nil {
 			return nil, err
 		}
