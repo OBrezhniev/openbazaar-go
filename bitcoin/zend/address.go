@@ -1,7 +1,6 @@
 package zend
 
 import (
-	"encoding/hex"
 	"errors"
 
 	"bytes"
@@ -298,7 +297,7 @@ func PayToAddrScript(addr btcutil.Address, blockHash []byte, blockNumber int64) 
 		if addr == nil {
 			return nil, errors.New(nilAddrErrStr)
 		}
-		return payToScriptHashScript(addr.ScriptAddress())
+		return payToScriptHashScript(addr.ScriptAddress(), blockHash, blockNumber)
 	}
 	return nil, fmt.Errorf("unable to generate payment script for unsupported "+
 		"address type %T", addr)
@@ -317,12 +316,10 @@ func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int6
 
 // payToScriptHashScript creates a new script to pay a transaction output to a
 // script hash. It is expected that the input is a valid hash.
-func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
+func payToScriptHashScript(scriptHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
 	log.Debugf("pay to Script creating")
-	blockhash,_:=hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
-	//0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000 261501
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_HASH160).AddData(scriptHash).
-		AddOp(txscript.OP_EQUAL).AddData(blockhash).AddInt64(261501).AddOp(txscript.OP_NOP5).Script()
+		AddOp(txscript.OP_EQUAL).AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).Script()
 }
 
 // ExtractPkScriptAddrs returns the type of script, addresses and required
@@ -362,9 +359,9 @@ func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash [
 	builder.AddInt64(int64(len(pubkeys)))
 	builder.AddOp(txscript.OP_CHECKMULTISIG)
 
-	log.Debugf("pay to Script creating")
-	blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
-	builder.AddData(blockHash).AddInt64(261501).AddOp(txscript.OP_NOP5)
+	//log.Debugf("pay to Script creating")
+	//blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
+	//builder.AddData(blockHash).AddInt64(261501).AddOp(txscript.OP_NOP5)
 
 	return builder.Script()
 }

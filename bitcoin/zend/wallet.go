@@ -848,11 +848,11 @@ func (w *ZendWallet) Multisign(ins []wallet.TransactionInput, outs []wallet.Tran
 		builder.AddData(sig2)
 		builder.AddData(redeemScript)
 	
-		blockHeight, _ := w.ChainTip()
-		blockNumber := int64(blockHeight) - 300
-		blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
-
-		builder.AddData(blockHash.CloneBytes()).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
+		//blockHeight, _ := w.ChainTip()
+		//blockNumber := int64(blockHeight) - 300
+		//blockHash, err := w.rpcClient.GetBlockHash(blockNumber)
+		//
+		//builder.AddData(blockHash.CloneBytes()).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
 		scriptSig, err := builder.Script()
 
 		log.Debug("Create mult sign tx")
