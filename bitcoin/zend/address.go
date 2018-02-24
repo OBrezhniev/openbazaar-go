@@ -1,6 +1,7 @@
 package zend
 
 import (
+	"encoding/hex"
 	"errors"
 
 	"bytes"
@@ -307,7 +308,6 @@ func PayToAddrScript(addr btcutil.Address, blockHash []byte, blockNumber int64) 
 // output to a 20-byte pubkey hash. It is expected that the input is a valid
 // hash.
 func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
-	log.Debug("blockhshlen", len(blockHash))
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160).
 		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).
 		AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).
@@ -317,7 +317,6 @@ func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int6
 // payToScriptHashScript creates a new script to pay a transaction output to a
 // script hash. It is expected that the input is a valid hash.
 func payToScriptHashScript(scriptHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
-	log.Debugf("pay to Script creating")
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_HASH160).AddData(scriptHash).
 		AddOp(txscript.OP_EQUAL).AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).Script()
 }
@@ -328,14 +327,10 @@ func payToScriptHashScript(scriptHash []byte, blockHash []byte, blockNumber int6
 // invalid are omitted from the results.
 func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (btcutil.Address, error) {
 	// No valid addresses or required signatures if the script doesn't
-	// parse.
-	log.Debug("len pkScr",len(pkScript))
-	if  pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {
-		log.Debug("firrrrrrr")
-		return NewAddressScriptHashFromHash(pkScript[2:22], chainParams) ////len(pkScript) == 1+1+20+1 &&
-	} else if pkScript[0] == 0x76 && pkScript[1] == 0xa9 && pkScript[2] == 0x14 && pkScript[23] == 0x88 && pkScript[24] == 0xac {
-		log.Debug("seeeeeec")
-		return NewAddressPubKeyHash(pkScript[3:23], chainParams) //len(pkScript) == 1+1+1+20+1+1 && 
+	if  (len(pkScript) == 1+1+20+1 || len(pkScript) == 61)  &&pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {
+		return NewAddressScriptHashFromHash(pkScript[2:22], chainParams)
+	} else if (len(pkScript) == 1+1+1+20+1+1 || len(pkScript) == 63) && pkScript[0] == 0x76 && pkScript[1] == 0xa9 && pkScript[2] == 0x14 && pkScript[23] == 0x88 && pkScript[24] == 0xac {
+		return NewAddressPubKeyHash(pkScript[3:23], chainParams)
 	} 
 	return nil, errors.New("unknown script type")
 }
@@ -351,7 +346,6 @@ func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash [
 			"keys available", nrequired, len(pubkeys))
 		return nil, txscript.Error{ErrorCode: txscript.ErrTooManyRequiredSigs, Description: str}
 	}
-	log.Debug("Multisig creeee")
 	builder := txscript.NewScriptBuilder().AddInt64(int64(nrequired))
 	for _, key := range pubkeys {
 		builder.AddData(key.ScriptAddress())
@@ -362,6 +356,12 @@ func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash [
 	//log.Debugf("pay to Script creating")
 	//blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
 	//builder.AddData(blockHash).AddInt64(261501).AddOp(txscript.OP_NOP5)
+
+	//temporary insert static data
+	blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
+	blockNumber = 261501
+
+	builder.AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5)
 
 	return builder.Script()
 }
