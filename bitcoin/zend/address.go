@@ -352,9 +352,5 @@ func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash [
 	builder.AddInt64(int64(len(pubkeys)))
 	builder.AddOp(txscript.OP_CHECKMULTISIG)
 
-	//log.Debugf("pay to Script creating")
-	//blockHash,_ = hex.DecodeString("0325748b63ab5afd207154a9f41669d95a5a7afbb9f6826c1fa64c8a00000000")
-	//builder.AddData(blockHash).AddInt64(261501).AddOp(txscript.OP_NOP5)
-
 	return builder.Script()
 }
