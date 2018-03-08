@@ -130,7 +130,7 @@ const (
 	//   - 20 bytes pubkey hash
 	//   - OP_EQUALVERIFY
 	//   - OP_CHECKSIG
-	//   - OP_NOP5 -1
+	//   - OP_CHECKBLOCKATHEIGHT -1
 	//   - 32 bytes blockchash
 	//   - 8 byte block height
 	P2PKHPkScriptSize = 1 + 1 + 1 + 20 + 1 + 1 + 1 + 32 + 8

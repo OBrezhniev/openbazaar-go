@@ -14,6 +14,8 @@ import (
 	"golang.org/x/crypto/ripemd160"
 )
 
+const OP_CHECKBLOCKATHEIGHT = txscript.OP_NOP5
+
 var (
 	// ErrChecksumMismatch describes an error where decoding failed due
 	// to a bad checksum.
@@ -309,7 +311,7 @@ func PayToAddrScript(addr btcutil.Address, blockHash []byte, blockNumber int64) 
 func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160).
 		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).
-		AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).
+		AddData(blockHash).AddInt64(blockNumber).AddOp(OP_CHECKBLOCKATHEIGHT).
 		Script()
 }
 
@@ -317,7 +319,7 @@ func payToPubKeyHashScript(pubKeyHash []byte, blockHash []byte, blockNumber int6
 // script hash. It is expected that the input is a valid hash.
 func payToScriptHashScript(scriptHash []byte, blockHash []byte, blockNumber int64) ([]byte, error) {
 	return txscript.NewScriptBuilder().AddOp(txscript.OP_HASH160).AddData(scriptHash).
-		AddOp(txscript.OP_EQUAL).AddData(blockHash).AddInt64(blockNumber).AddOp(txscript.OP_NOP5).Script()
+		AddOp(txscript.OP_EQUAL).AddData(blockHash).AddInt64(blockNumber).AddOp(OP_CHECKBLOCKATHEIGHT).Script()
 }
 
 // ExtractPkScriptAddrs returns the type of script, addresses and required
@@ -326,31 +328,10 @@ func payToScriptHashScript(scriptHash []byte, blockHash []byte, blockNumber int6
 // invalid are omitted from the results.
 func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (btcutil.Address, error) {
 	// No valid addresses or required signatures if the script doesn't
-	if  (len(pkScript) == 1+1+20+1 || len(pkScript) == 61)  &&pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {
+	if (len(pkScript) == 1+1+20+1 || len(pkScript) == 61) && pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {
 		return NewAddressScriptHashFromHash(pkScript[2:22], chainParams)
 	} else if (len(pkScript) == 1+1+1+20+1+1 || len(pkScript) == 63) && pkScript[0] == 0x76 && pkScript[1] == 0xa9 && pkScript[2] == 0x14 && pkScript[23] == 0x88 && pkScript[24] == 0xac {
 		return NewAddressPubKeyHash(pkScript[3:23], chainParams)
-	} 
+	}
 	return nil, errors.New("unknown script type")
-}
-
-// MultiSigScript returns a valid script for a multisignature redemption where
-// nrequired of the keys in pubkeys are required to have signed the transaction
-// for success.  An Error with the error code ErrTooManyRequiredSigs will be
-// returned if nrequired is larger than the number of keys provided.
-func MultiSigScript(pubkeys []*btcutil.AddressPubKey, nrequired int, blockHash []byte, blockNumber int64) ([]byte, error) {
-	if len(pubkeys) < nrequired {
-		str := fmt.Sprintf("unable to generate multisig script with "+
-			"%d required signatures when there are only %d public "+
-			"keys available", nrequired, len(pubkeys))
-		return nil, txscript.Error{ErrorCode: txscript.ErrTooManyRequiredSigs, Description: str}
-	}
-	builder := txscript.NewScriptBuilder().AddInt64(int64(nrequired))
-	for _, key := range pubkeys {
-		builder.AddData(key.ScriptAddress())
-	}
-	builder.AddInt64(int64(len(pubkeys)))
-	builder.AddOp(txscript.OP_CHECKMULTISIG)
-
-	return builder.Script()
 }
